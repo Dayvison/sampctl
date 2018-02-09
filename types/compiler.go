@@ -12,6 +12,8 @@ type BuildConfig struct {
 	Output     string            `json:"output,omitempty"`     // output .amx file
 	Includes   []string          `json:"includes,omitempty"`   // list of include files to include in compilation via -i flags
 	Constants  map[string]string `json:"constants,omitempty"`  // set of constant definitions to pass to the compiler
+	PreBuild   [][]string        `json:"pre_build,omitempty"`  // set of commands to run before the build
+	PostBuild  [][]string        `json:"post_build,omitempty"` // set of commands to run after the build
 }
 
 // CompilerVersion represents a compiler version number

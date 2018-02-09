@@ -84,9 +84,18 @@ func Build(ctx context.Context, gh *github.Client, auth transport.AuthMethod, pk
 	} else {
 		print.Verb("building", pkg, "with", config.Version)
 
+		err = config.runPre()
+		if err != nil {
+			err = errors.Wrap(err, "pre-build failed")
+			return
+		}
 		problems, result, err = compiler.CompileWithCommand(cmd, config.WorkingDir)
 		if err != nil {
 			err = errors.Wrap(err, "failed to compile package entry")
+		}
+		err = config.runPost()
+		if err != nil {
+			print.Erro("Post build failed:", err)
 		}
 
 		if buildFile != "" {
@@ -213,16 +222,24 @@ loop:
 
 			fmt.Println("watch-build: starting compilation", buildNumber)
 			go func() {
-				running.Store(true)
-				problems, _, err = compiler.CompileSource(ctxInner, gh, pkg.Local, cacheDir, platform, *config)
-				running.Store(false)
-
+				err = config.runPre()
 				if err != nil {
-					if err.Error() == "signal: killed" || err.Error() == "context canceled" {
-						return
+					print.Erro("Pre-build failed:", err)
+				} else {
+					running.Store(true)
+					problems, _, err = compiler.CompileSource(ctxInner, gh, pkg.Local, cacheDir, platform, *config)
+					running.Store(false)
+					err = config.runPost()
+					if err != nil {
+						print.Erro("Post-build failed:", err)
 					}
+					if err != nil {
+						if err.Error() == "signal: killed" || err.Error() == "context canceled" {
+							return
+						}
 
-					errorCh <- errors.Wrapf(err, "failed to compile package, run: %d", buildNumber)
+						errorCh <- errors.Wrapf(err, "failed to compile package, run: %d", buildNumber)
+					}
 				}
 				fmt.Println("watch-build: finished", buildNumber)
 
